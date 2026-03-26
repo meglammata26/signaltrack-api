@@ -1,34 +1,18 @@
-def score_signal(signal_type):
+# scoring/scoring.py
 
-    scoring_table = {
+def score_signal(content: str):
+    """
+    Returns (impact_score, urgency_score) as floats
+    """
 
-        "blocker": {
-            "impact": 90,
-            "urgency": 95
-        },
+    try:
+        # Simple heuristic scoring (you can improve later)
+        length = len(content)
 
-        "risk": {
-            "impact": 80,
-            "urgency": 85
-        },
+        impact = min(100, length * 0.5)     # scale to max 100
+        urgency = min(100, length * 0.3)
 
-        "decision": {
-            "impact": 70,
-            "urgency": 70
-        },
+        return float(impact), float(urgency)
 
-        "dependency": {
-            "impact": 60,
-            "urgency": 65
-        },
-
-        "progress": {
-            "impact": 40,
-            "urgency": 30
-        }
-    }
-
-    return scoring_table.get(
-        signal_type,
-        {"impact": 50, "urgency": 50}
-    )
+    except Exception:
+        return 0.0, 0.0

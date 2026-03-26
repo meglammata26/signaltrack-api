@@ -1,50 +1,106 @@
-from fastapi import FastAPI
-from typing import List
+# api/main.py
 
-from signal_ingestion.ingest import ingest_signals
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
 from classification.classifier import classify_signal
 from scoring.scoring import score_signal
-from models.signal import Signal
+from insight_engine.llm_analysis import generate_insight
+from database import SessionLocal, engine, Base
+import db_models, schemas, crud
+import datetime
+import traceback
+
+
+# --- Helper ---
+def cluster_signal(content: str, type_: str):
+    return type_
+
+
+# create tables
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
 
-@app.get("/signals", response_model=List[Signal])
-def get_signals():
+# --- DB Dependency ---
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-    signals = ingest_signals()
 
-    for signal in signals:
+# --- ROUTES ---
 
-        signal_type = classify_signal(signal.raw_content)
+@app.post("/signals")
+def create_signal(signal: schemas.SignalCreate, db: Session = Depends(get_db)):
+    try:
+        # --- classification ---
+        try:
+            type_ = classify_signal(signal.content)
+        except Exception:
+            type_ = "unknown"
 
-        scores = score_signal(signal_type)
+        # --- scoring (FIXED) ---
+        try:
+            impact, urgency = score_signal(signal.content)
+            impact = float(impact)
+            urgency = float(urgency)
+        except Exception:
+            impact, urgency = 0.0, 0.0
 
-        signal.signal_type = signal_type
-        signal.impact_score = scores["impact"]
-        signal.urgency_score = scores["urgency"]
+        # --- clustering ---
+        cluster_id = cluster_signal(signal.content, type_)
 
-    return signals
+        # --- summary ---
+        summary = signal.content[:100]
 
-@app.get("/analytics")
-def get_signal_analytics():
+        # --- save signal ---
+        db_signal = crud.create_signal(db, {
+            "source": signal.source,
+            "timestamp": datetime.datetime.utcnow(),
+            "content": signal.content,
+            "summary": summary,
+            "type": type_,
+            "impact_score": impact,
+            "urgency_score": urgency,
+            "cluster_id": cluster_id
+        })
 
-    signals = ingest_signals()
+        # --- generate insight ---
+        try:
+            insight_text = generate_insight(signal.content)
+        except Exception:
+            insight_text = "Insight generation failed"
 
-    counts = {
-        "blocker": 0,
-        "risk": 0,
-        "decision": 0,
-        "dependency": 0,
-        "progress": 0
-    }
+        # --- save insight ---
+        crud.create_insight(db, {
+            "cluster_id": cluster_id,
+            "summary": insight_text,
+            "status": "pending"
+        })
 
-    for signal in signals:
+        return {
+    "id": db_signal.id,
+    "source": db_signal.source,
+    "summary": db_signal.summary,
+    "type": db_signal.type,
+    "impact_score": db_signal.impact_score,
+    "urgency_score": db_signal.urgency_score,
+    "cluster_id": db_signal.cluster_id
+}
 
-        signal_type = classify_signal(signal.raw_content)
-        counts[signal_type] += 1
+    except Exception as e:
+        traceback.print_exc()
+        return {"error": str(e)}
 
-    return {
-        "total_signals": len(signals),
-        "signal_distribution": counts
-    }
+
+@app.get("/signals", response_model=list[schemas.SignalResponse])
+def get_signals(db: Session = Depends(get_db)):
+    return crud.get_signals(db)
+
+
+@app.get("/insights", response_model=list[schemas.InsightResponse])
+def get_insights(db: Session = Depends(get_db)):
+    return crud.get_insights(db)
