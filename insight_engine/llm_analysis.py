@@ -1,7 +1,6 @@
 import os
+import json
 from openai import OpenAI
-
-
 
 api_key = os.getenv("GROQ_API_KEY")
 
@@ -13,14 +12,10 @@ client = OpenAI(
     base_url="https://api.groq.com/openai/v1"
 )
 
-
 def generate_insight(input_data):
     """
-    Generates leadership-level insights from engineering signals.
-
-    Accepts:
-    - a single string
-    - OR a list of signals (dicts with 'content')
+    Generates structured leadership insights from engineering signals.
+    Returns JSON with blockers, risks, and trends.
     """
 
     try:
@@ -37,31 +32,45 @@ def generate_insight(input_data):
 
         # --- Prompt ---
         prompt = f"""
-        You are an engineering insights assistant for leadership.
+You are a senior engineering insights assistant.
 
-        Analyze the following signals and provide:
-        - Key blockers
-        - Risks
-        - Important trends or patterns
+Analyze the following signals and extract:
+- blockers (things actively preventing progress)
+- risks (potential future issues)
+- trends (patterns across signals)
 
-        Keep it concise and actionable.
+Return ONLY valid JSON in this format:
+{{
+  "blockers": ["..."],
+  "risks": ["..."],
+  "trends": ["..."]
+}}
 
-        Signals:
-        {combined_text}
-        """
+Signals:
+{combined_text}
+"""
 
-        # --- LLM call (Groq) ---
+        # --- LLM call ---
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2
         )
-        
-        return response.choices[0].message.content
-    
-    
+
+        output = response.choices[0].message.content.strip()
+
+        # --- Parse JSON safely ---
+        try:
+            return json.loads(output)
+        except json.JSONDecodeError:
+            return {
+                "blockers": [],
+                "risks": [],
+                "trends": [],
+                "raw": output  # fallback for debugging
+            }
 
     except Exception as e:
-        return f"Insight generation failed: {str(e)}"
+        return {
+            "error": f"Insight generation failed: {str(e)}"
+        }
