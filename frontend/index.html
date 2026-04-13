@@ -619,13 +619,13 @@
   }
 
   function timeAgo(ts) {
-    if (!ts) return '';
-    const d = (Date.now() - new Date(ts)) / 1000;
-    if (d < 60) return `${Math.floor(d)}s ago`;
-    if (d < 3600) return `${Math.floor(d/60)}m ago`;
-    if (d < 86400) return `${Math.floor(d/3600)}h ago`;
-    return `${Math.floor(d/86400)}d ago`;
-  }
+  const d = new Date(ts.endsWith('Z') ? ts : ts + 'Z'); // force UTC parse
+  const diff = Math.floor((Date.now() - d) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
 
   function weekNum() {
     const now = new Date(), s = new Date(now.getFullYear(),0,1);
@@ -860,7 +860,13 @@
         </div>`;
     }).join('');
   }
-
+function parseInsightSummary(summary) {
+  try {
+    const parsed = JSON.parse(summary);
+    if (parsed.blockers || parsed.risks || parsed.trends) return parsed;
+  } catch {}
+  return null; // treat unparseable summaries as invalid
+}
   /* ── BRIEFING ── */
   function renderBriefing(signals, insights) {
     const wk = weekNum();
@@ -908,7 +914,7 @@
     }
 
     // Human review
-    const pending = insights.filter(i=>i.status==='pending');
+    const pending = insights.filter(i=>i.status==='pending' && parseInsightSummary(i.summary));
     document.getElementById('human-review-text').textContent = pending.length
       ? `${pending.length} insight${pending.length!==1?'s':''} pending human review. Do not approve until team leads verify automated findings.`
       : `All insights reviewed. System running normally.`;
@@ -921,12 +927,20 @@
     document.getElementById('notif-count').textContent = blockers.length + risks.filter(r=>r.urgency_score>70).length;
   }
 
-  function approveAndPublish() {
-    const btn = document.querySelector('.approve-btn');
-    btn.textContent = '✓ Published';
-    btn.style.background = 'var(--green)';
-    setTimeout(()=>{ btn.textContent='Approve & Publish'; btn.style.background=''; }, 3000);
-  }
+async function approveAndPublish() {
+  const pending = allInsights.filter(i => i.status === 'pending');
+  if (!pending.length) return;
+
+  await Promise.all(pending.map(i =>
+    fetch(`http://localhost:8000/insights/${i.id}/approve`, { method: 'PATCH' })
+  ));
+
+  const btn = document.querySelector('.approve-btn');
+  btn.textContent = '✓ Published';
+  btn.style.background = 'var(--green)';
+  await fetchAll(); // refresh dashboard
+  setTimeout(() => { btn.textContent = 'Approve & Publish'; btn.style.background = ''; }, 3000);
+}
 
   /* ── FETCH ── */
   async function fetchAll() {
@@ -960,6 +974,15 @@
   });
 
   return await res.json();
+}
+
+function selectSignal(el, signal) {
+  document.querySelectorAll('.signal-row').forEach(r => r.classList.remove('selected'));
+  el.classList.add('selected');
+
+  // populate the critical banner with the selected signal
+  document.getElementById('selected-signal-title').textContent =
+    signal.summary || signal.content?.slice(0, 80) || 'Signal Detail';
 }
 </script>
 </body>

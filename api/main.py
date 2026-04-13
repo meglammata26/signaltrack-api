@@ -25,9 +25,24 @@ app.add_middleware(
 )
 
 # --- HELPER FUNCTION ---
+
 def cluster_signal(content: str, type_: str):
-    # Minimal clustering by type; can expand later
-    return type_
+    text = content.lower()
+
+    CLUSTERS = {
+        "auth":       ["auth", "login", "oauth", "token", "permission", "access"],
+        "deployment": ["deploy", "pipeline", "ci", "cd", "build", "release", "merge"],
+        "api":        ["api", "endpoint", "timeout", "request", "response", "gateway"],
+        "database":   ["database", "db", "query", "migration", "schema", "postgres", "sqlite"],
+        "payments":   ["payment", "stripe", "billing", "transaction", "checkout"],
+        "infra":      ["server", "memory", "cpu", "latency", "load", "crash", "infra"],
+    }
+
+    for cluster, keywords in CLUSTERS.items():
+        if any(kw in text for kw in keywords):
+            return cluster
+
+    return type_  # fallback to signal type
 
 # --- CREATE DB TABLES ---
 Base.metadata.create_all(bind=engine)
@@ -128,3 +143,14 @@ def analyze_signals(request: SignalRequest):
     except Exception as e:
         traceback.print_exc()
         return {"error": str(e)}
+    
+#connect to approve and publish
+@app.patch("/insights/{insight_id}/approve")
+def approve_insight(insight_id: int, db: Session = Depends(get_db)):
+    insight = db.query(db_models.Insight).filter(db_models.Insight.id == insight_id).first()
+    if not insight:
+        return {"error": "Insight not found"}
+    insight.status = "approved"
+    db.commit()
+    db.refresh(insight)
+    return {"id": insight.id, "status": insight.status}
