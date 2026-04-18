@@ -808,10 +808,12 @@
 
   function parseTS(ts) {
     if (!ts) return new Date();
-    // Already has timezone info
-    if (ts.endsWith('Z') || ts.includes('+')) return new Date(ts);
-    // Has time component but no timezone — assume UTC
-    if (ts.includes('T') || ts.includes(' ')) return new Date(ts + 'Z');
+    // Already has explicit timezone — parse as-is
+    if (ts.endsWith('Z') || ts.includes('+') || ts.includes('-', 10)) return new Date(ts);
+    // Has T separator (e.g. 2026-04-18T09:35:11.431419) — no timezone, treat as UTC
+    if (ts.includes('T')) return new Date(ts + 'Z');
+    // Has space separator (e.g. 2026-04-18 09:35:11) — replace space, treat as UTC
+    if (ts.includes(' ')) return new Date(ts.replace(' ', 'T') + 'Z');
     // Date only
     return new Date(ts + 'T00:00:00Z');
   }
