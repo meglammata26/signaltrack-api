@@ -616,7 +616,7 @@
   // Called by Google GSI after credential is returned
   function handleCredential(response) {
     const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    const allowed = ['jackaltechteam@gmail.com', 'meglammata@gmail.com'];
+    const allowed = ['jackaltechteam@gmail.com', 'meglammata7@gmail.com'];
     if (allowed.includes(payload.email)) {
       sessionStorage.setItem('st_token', response.credential);
       sessionStorage.setItem('st_user', payload.email);
