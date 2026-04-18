@@ -600,19 +600,66 @@
 <script>
   const SIGNALS_API  = "https://signaltrack-api.onrender.com/signals";
   const INSIGHTS_API = "https://signaltrack-api.onrender.com/insights";
+  const GOOGLE_CLIENT_ID = "742982574734-d14d3r1qh6ts5p8vae78648871kk2rpj.apps.googleusercontent.com";
 
   let allSignals = [], allInsights = [];
   let activeFilter = 'all';
   let volChart = null;
 
   /* ── AUTH ── */
-  const GOOGLE_CLIENT_ID = "742982574734-d14d3r1qh6ts5p8vae78648871kk2rpj.apps.googleusercontent.com";
-
   function initAuth() {
     const token = sessionStorage.getItem('st_token');
     if (token) { showDashboard(); return; }
     showLogin();
   }
+
+  // Called by Google GSI after credential is returned
+  function handleCredential(response) {
+    const payload = JSON.parse(atob(response.credential.split('.')[1]));
+    const allowed = ['jackaltechteam@gmail.com', 'meglammata@gmail.com'];
+    if (allowed.includes(payload.email)) {
+      sessionStorage.setItem('st_token', response.credential);
+      sessionStorage.setItem('st_user', payload.email);
+      location.reload();
+    } else {
+      alert('Access restricted to Jackal Tech team members.');
+    }
+  }
+
+  // Make handleCredential globally accessible for the dynamically injected page
+  window.handleCredential = handleCredential;
+
+  function triggerGoogleSignIn() {
+    if (!window.google || !window.google.accounts) {
+      // GSI library not ready yet — retry shortly
+      setTimeout(triggerGoogleSignIn, 300);
+      return;
+    }
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: window.handleCredential,
+      ux_mode: 'popup',
+      cancel_on_tap_outside: false,
+    });
+    google.accounts.id.prompt(notification => {
+      // If One Tap is suppressed (e.g. browser blocks it), fall back to renderButton
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        const container = document.getElementById('google-btn-container');
+        if (container) {
+          container.innerHTML = '';
+          google.accounts.id.renderButton(container, {
+            theme: 'filled_black',
+            size: 'large',
+            text: 'signin_with',
+            shape: 'rectangular',
+            logo_alignment: 'left',
+          });
+        }
+      }
+    });
+  }
+
+  window.triggerGoogleSignIn = triggerGoogleSignIn;
 
   function showLogin() {
     document.body.style.overflow = 'hidden';
@@ -663,6 +710,7 @@
         @keyframes pb{0%,100%{background:rgba(59,130,246,0.3);}50%{background:rgba(59,130,246,0.85);}}
         .google-btn{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:7px;padding:11px 24px;color:#e2e8f0;font-size:13px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;transition:all 0.2s;letter-spacing:0.01em;}
         .google-btn:hover{background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.45);transform:translateY(-1px);}
+        #google-btn-container{min-height:44px;display:flex;align-items:center;justify-content:center;}
         .status-row{display:flex;align-items:center;gap:7px;margin-top:28px;}
         .status-dot{width:5px;height:5px;border-radius:50%;background:#22c55e;animation:blink 2s ease-in-out infinite;}
         @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.25;}}
@@ -694,20 +742,17 @@
           <div class="signal-bars">
             <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
           </div>
-          <div id="g_id_onload"
-            data-client_id="${GOOGLE_CLIENT_ID}"
-            data-callback="handleCredential"
-            data-auto_prompt="false">
+          <div id="google-btn-container">
+            <button class="google-btn" onclick="window.triggerGoogleSignIn()">
+              <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+                <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/>
+                <path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+                <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+              </svg>
+              Sign in with Google
+            </button>
           </div>
-          <button class="google-btn" onclick="triggerGoogleSignIn()">
-            <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
-              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
-              <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/>
-              <path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-            </svg>
-            Sign in with Google
-          </button>
           <div class="status-row">
             <div class="status-dot"></div>
             <div class="status-text">SYSTEM ONLINE · ALL PIPELINES ACTIVE</div>
@@ -744,24 +789,7 @@
           }
           draw();
         })();
-        function triggerGoogleSignIn(){
-          if(window.google && google.accounts){
-            google.accounts.id.prompt();
-          }
-        }
       <\/script>`;
-  }
-
-  function handleCredential(response) {
-    const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    const allowed = ['jackaltechteam@gmail.com', 'meglammata@gmail.com'];
-    if (allowed.includes(payload.email)) {
-      sessionStorage.setItem('st_token', response.credential);
-      sessionStorage.setItem('st_user', payload.email);
-      location.reload();
-    } else {
-      alert('Access restricted to Jackal Tech team members.');
-    }
   }
 
   function showDashboard() {
@@ -784,13 +812,13 @@
   }
 
   function timeAgo(ts) {
-  const d = new Date(ts.endsWith('Z') ? ts : ts + 'Z'); // force UTC parse
-  const diff = Math.floor((Date.now() - d) / 1000);
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
-  return `${Math.floor(diff/86400)}d ago`;
-}
+    const d = new Date(ts.endsWith('Z') ? ts : ts + 'Z');
+    const diff = Math.floor((Date.now() - d) / 1000);
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+    return `${Math.floor(diff/86400)}d ago`;
+  }
 
   function weekNum() {
     const now = new Date(), s = new Date(now.getFullYear(),0,1);
@@ -1025,13 +1053,15 @@
         </div>`;
     }).join('');
   }
-function parseInsightSummary(summary) {
-  try {
-    const parsed = JSON.parse(summary);
-    if (parsed.blockers || parsed.risks || parsed.trends) return parsed;
-  } catch {}
-  return null; // treat unparseable summaries as invalid
-}
+
+  function parseInsightSummary(summary) {
+    try {
+      const parsed = JSON.parse(summary);
+      if (parsed.blockers || parsed.risks || parsed.trends) return parsed;
+    } catch {}
+    return null;
+  }
+
   /* ── BRIEFING ── */
   function renderBriefing(signals, insights) {
     const wk = weekNum();
@@ -1044,7 +1074,6 @@ function parseInsightSummary(summary) {
     const risks    = signals.filter(s=>s.type==='risk').sort((a,b)=>b.urgency_score-a.urgency_score);
     const topSigs  = [...blockers.slice(0,2),...risks.slice(0,1)];
 
-    // Issues
     const issEl = document.getElementById('top-issues');
     issEl.innerHTML = topSigs.length
       ? topSigs.map((s,i)=>`
@@ -1054,7 +1083,6 @@ function parseInsightSummary(summary) {
           </div>`).join('')
       : `<div style="font-size:11px;color:var(--text3);">No critical issues detected</div>`;
 
-    // Blockers
     const blkEl = document.getElementById('top-blockers');
     blkEl.innerHTML = blockers.length
       ? blockers.slice(0,3).map((s,i)=>`
@@ -1064,13 +1092,11 @@ function parseInsightSummary(summary) {
           </div>`).join('')
       : `<div style="font-size:11px;color:var(--text3);">No blockers detected</div>`;
 
-    // Risk
     const rEl = document.getElementById('key-risk-text');
     if (risks.length) rEl.innerHTML = `<span class="risk-highlight">${esc(risks[0].cluster_id||risks[0].source||'System')}</span>: ${esc((risks[0].summary||risks[0].content||'').slice(0,120))}`;
     else if (blockers.length) rEl.innerHTML = `<span class="risk-highlight">Blockers active</span>: ${blockers.length} blocking signal${blockers.length!==1?'s':''} require attention.`;
     else rEl.innerHTML = `No high-risk signals currently detected.`;
 
-    // Recommendation
     const recEl = document.getElementById('rec-text');
     if (blockers.length||risks.length) {
       recEl.innerHTML = `<span class="kw-assign">Assign</span> owners to ${blockers.length} active blocker${blockers.length!==1?'s':''}. <span class="kw-hold">Hold</span> dependent deployments until resolved. <span class="kw-escalate">Escalate</span> ${risks.length} risk signal${risks.length!==1?'s':''} to team leads before next exec review.`;
@@ -1078,13 +1104,11 @@ function parseInsightSummary(summary) {
       recEl.innerHTML = `No immediate escalations required. Continue monitoring signal feed for emerging patterns.`;
     }
 
-    // Human review
     const pending = insights.filter(i=>i.status==='pending' && parseInsightSummary(i.summary));
     document.getElementById('human-review-text').textContent = pending.length
       ? `${pending.length} insight${pending.length!==1?'s':''} pending human review. Do not approve until team leads verify automated findings.`
       : `All insights reviewed. System running normally.`;
 
-    // Footer
     const clusterIds = [...new Set(signals.map(s=>s.cluster_id).filter(Boolean))].slice(0,3);
     document.getElementById('gen-src').textContent = clusterIds.length ? clusterIds.join(' · ') : 'api';
     const avgConf = signals.length ? Math.round(signals.reduce((s,x)=>s+(x.impact_score+x.urgency_score)/2,0)/signals.length) : 0;
@@ -1092,20 +1116,20 @@ function parseInsightSummary(summary) {
     document.getElementById('notif-count').textContent = blockers.length + risks.filter(r=>r.urgency_score>70).length;
   }
 
-async function approveAndPublish() {
-  const pending = allInsights.filter(i => i.status === 'pending');
-  if (!pending.length) return;
+  async function approveAndPublish() {
+    const pending = allInsights.filter(i => i.status === 'pending');
+    if (!pending.length) return;
 
-  await Promise.all(pending.map(i =>
-    fetch(`https://signaltrack-api.onrender.com/insights/${i.id}/approve`, { method: 'PATCH' })
-  ));
+    await Promise.all(pending.map(i =>
+      fetch(`https://signaltrack-api.onrender.com/insights/${i.id}/approve`, { method: 'PATCH' })
+    ));
 
-  const btn = document.querySelector('.approve-btn');
-  btn.textContent = '✓ Published';
-  btn.style.background = 'var(--green)';
-  await fetchAll(); // refresh dashboard
-  setTimeout(() => { btn.textContent = 'Approve & Publish'; btn.style.background = ''; }, 3000);
-}
+    const btn = document.querySelector('.approve-btn');
+    btn.textContent = '✓ Published';
+    btn.style.background = 'var(--green)';
+    await fetchAll();
+    setTimeout(() => { btn.textContent = 'Approve & Publish'; btn.style.background = ''; }, 3000);
+  }
 
   /* ── FETCH ── */
   async function fetchAll() {
@@ -1127,27 +1151,6 @@ async function approveAndPublish() {
   }
 
   initAuth();
-
-  async function analyzeSignals(signals) {
-  const res = await fetch("https://signaltrack-api.onrender.com/analyze", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ signals }),
-  });
-
-  return await res.json();
-}
-
-function selectSignal(el, signal) {
-  document.querySelectorAll('.signal-row').forEach(r => r.classList.remove('selected'));
-  el.classList.add('selected');
-
-  // populate the critical banner with the selected signal
-  document.getElementById('selected-signal-title').textContent =
-    signal.summary || signal.content?.slice(0, 80) || 'Signal Detail';
-}
 </script>
 </body>
 </html>
