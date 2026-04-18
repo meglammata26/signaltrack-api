@@ -605,8 +605,9 @@
   let activeFilter = 'all';
   let volChart = null;
 
+  /* ── AUTH ── */
   const GOOGLE_CLIENT_ID = "742982574734-d14d3r1qh6ts5p8vae78648871kk2rpj.apps.googleusercontent.com";
-  
+
   function initAuth() {
     const token = sessionStorage.getItem('st_token');
     if (token) { showDashboard(); return; }
@@ -614,22 +615,146 @@
   }
 
   function showLogin() {
+    document.body.style.overflow = 'hidden';
     document.body.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0e1117;flex-direction:column;gap:24px;">
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;color:#e2e8f0;">ST SignalTrack</div>
-        <div style="color:#8a97b0;font-size:13px;">Sign in with your Jackal Tech Google account</div>
-        <div id="g_id_onload"
-          data-client_id="${GOOGLE_CLIENT_ID}"
-          data-callback="handleCredential"
-          data-auto_prompt="false">
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:#080c12;height:100vh;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;}
+        .st-wrap{position:relative;width:100%;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
+        .grid-bg{position:absolute;inset:0;background-image:linear-gradient(rgba(59,130,246,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,0.06) 1px,transparent 1px);background-size:40px 40px;}
+        .scanline{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(59,130,246,0.12),rgba(59,130,246,0.35),rgba(59,130,246,0.12),transparent);animation:scan 3s linear infinite;pointer-events:none;}
+        @keyframes scan{0%{top:-2px;}100%{top:100%;}}
+        .corner{position:absolute;width:24px;height:24px;border-color:rgba(59,130,246,0.35);border-style:solid;}
+        .corner-tl{top:20px;left:20px;border-width:1.5px 0 0 1.5px;}
+        .corner-tr{top:20px;right:20px;border-width:1.5px 1.5px 0 0;}
+        .corner-bl{bottom:20px;left:20px;border-width:0 0 1.5px 1.5px;}
+        .corner-br{bottom:20px;right:20px;border-width:0 1.5px 1.5px 0;}
+        .boot-seq{position:absolute;top:28px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px;opacity:0;animation:fadeIn 0.3s 0.2s forwards;}
+        @keyframes fadeIn{to{opacity:1;}}
+        .boot-line{font-size:10px;color:rgba(59,130,246,0.5);letter-spacing:0.1em;white-space:nowrap;overflow:hidden;width:0;animation:typeIn 0.5s forwards;}
+        .boot-line.l1{animation-delay:0.4s;}
+        .boot-line.l2{animation-delay:1.1s;}
+        .boot-line.l3{animation-delay:1.8s;}
+        @keyframes typeIn{to{width:320px;}}
+        .node{position:absolute;width:5px;height:5px;border-radius:50%;background:rgba(59,130,246,0.35);animation:float-node 4s ease-in-out infinite;}
+        .n1{top:18%;left:14%;animation-delay:0s;}
+        .n2{top:22%;right:12%;animation-delay:0.9s;}
+        .n3{bottom:28%;left:10%;animation-delay:1.8s;}
+        .n4{bottom:22%;right:16%;animation-delay:2.7s;}
+        @keyframes float-node{0%,100%{opacity:0.35;transform:scale(1);}50%{opacity:1;transform:scale(2);}}
+        canvas.radar{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.15;}
+        .content{position:relative;z-index:10;display:flex;flex-direction:column;align-items:center;opacity:0;animation:riseIn 0.8s 2.6s cubic-bezier(0.22,1,0.36,1) forwards;}
+        @keyframes riseIn{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+        .logo-row{display:flex;align-items:center;gap:14px;margin-bottom:8px;}
+        .logo-mark{width:44px;height:44px;background:rgba(59,130,246,0.12);border:1.5px solid rgba(59,130,246,0.4);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;color:#3b82f6;letter-spacing:0.05em;position:relative;overflow:hidden;}
+        .logo-mark::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(59,130,246,0.25),transparent);animation:shim 2.5s 3s ease-in-out infinite;}
+        @keyframes shim{0%,100%{opacity:0;}50%{opacity:1;}}
+        .logo-name{font-size:26px;font-weight:600;color:#e2e8f0;letter-spacing:0.04em;}
+        .logo-name span{color:#3b82f6;}
+        .tagline{font-size:10px;color:rgba(138,151,176,0.6);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:36px;}
+        .signal-bars{display:flex;align-items:flex-end;gap:4px;margin-bottom:32px;}
+        .bar{width:4px;border-radius:2px;background:rgba(59,130,246,0.3);animation:pb 1.4s ease-in-out infinite;}
+        .bar:nth-child(1){height:8px;animation-delay:0s;}
+        .bar:nth-child(2){height:16px;animation-delay:0.15s;}
+        .bar:nth-child(3){height:24px;animation-delay:0.3s;}
+        .bar:nth-child(4){height:16px;animation-delay:0.45s;}
+        .bar:nth-child(5){height:8px;animation-delay:0.6s;}
+        @keyframes pb{0%,100%{background:rgba(59,130,246,0.3);}50%{background:rgba(59,130,246,0.85);}}
+        .google-btn{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:7px;padding:11px 24px;color:#e2e8f0;font-size:13px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;transition:all 0.2s;letter-spacing:0.01em;}
+        .google-btn:hover{background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.45);transform:translateY(-1px);}
+        .status-row{display:flex;align-items:center;gap:7px;margin-top:28px;}
+        .status-dot{width:5px;height:5px;border-radius:50%;background:#22c55e;animation:blink 2s ease-in-out infinite;}
+        @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.25;}}
+        .status-text{font-size:10px;color:rgba(138,151,176,0.55);letter-spacing:0.12em;}
+      </style>
+      <div class="st-wrap">
+        <div class="grid-bg"></div>
+        <div class="scanline"></div>
+        <div class="corner corner-tl"></div>
+        <div class="corner corner-tr"></div>
+        <div class="corner corner-bl"></div>
+        <div class="corner corner-br"></div>
+        <div class="node n1"></div>
+        <div class="node n2"></div>
+        <div class="node n3"></div>
+        <div class="node n4"></div>
+        <canvas class="radar" id="radarCanvas" width="360" height="360"></canvas>
+        <div class="boot-seq">
+          <div class="boot-line l1">SIGNALTRACK OS v2.8 · INITIALIZING PIPELINE...</div>
+          <div class="boot-line l2">LLM READY · INGESTION ACTIVE · CLUSTERS ONLINE</div>
+          <div class="boot-line l3">LOADING INTELLIGENCE LAYER · AWAITING AUTH...</div>
         </div>
-        <div class="g_id_signin" data-type="standard" data-theme="filled_black" data-size="large"></div>
-      </div>`;
+        <div class="content">
+          <div class="logo-row">
+            <div class="logo-mark">ST</div>
+            <div class="logo-name">Signal<span>Track</span></div>
+          </div>
+          <div class="tagline">Signal Intelligence Platform · Jackal Tech</div>
+          <div class="signal-bars">
+            <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+          </div>
+          <div id="g_id_onload"
+            data-client_id="${GOOGLE_CLIENT_ID}"
+            data-callback="handleCredential"
+            data-auto_prompt="false">
+          </div>
+          <button class="google-btn" onclick="triggerGoogleSignIn()">
+            <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+              <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/>
+              <path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+            </svg>
+            Sign in with Google
+          </button>
+          <div class="status-row">
+            <div class="status-dot"></div>
+            <div class="status-text">SYSTEM ONLINE · ALL PIPELINES ACTIVE</div>
+          </div>
+        </div>
+      </div>
+      <script>
+        (function(){
+          const c = document.getElementById('radarCanvas');
+          if(!c) return;
+          const ctx = c.getContext('2d');
+          let angle = 0;
+          const cx=180,cy=180,maxR=160;
+          function draw(){
+            ctx.clearRect(0,0,360,360);
+            for(let r=40;r<=maxR;r+=40){
+              ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+              ctx.strokeStyle='rgba(59,130,246,0.3)';ctx.lineWidth=0.8;ctx.stroke();
+            }
+            [0,45,90,135].forEach(a=>{
+              const rad=a*Math.PI/180;
+              ctx.beginPath();ctx.moveTo(cx,cy);
+              ctx.lineTo(cx+Math.cos(rad)*maxR,cy+Math.sin(rad)*maxR);
+              ctx.strokeStyle='rgba(59,130,246,0.18)';ctx.lineWidth=0.6;ctx.stroke();
+            });
+            ctx.save();ctx.translate(cx,cy);ctx.rotate(angle);
+            ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,maxR,-0.25,0);
+            ctx.fillStyle='rgba(59,130,246,0.08)';ctx.fill();
+            ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(maxR,0);
+            ctx.strokeStyle='rgba(59,130,246,0.65)';ctx.lineWidth=1.5;ctx.stroke();
+            ctx.restore();
+            angle+=0.016;
+            requestAnimationFrame(draw);
+          }
+          draw();
+        })();
+        function triggerGoogleSignIn(){
+          if(window.google && google.accounts){
+            google.accounts.id.prompt();
+          }
+        }
+      <\/script>`;
   }
 
   function handleCredential(response) {
     const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    const allowed = ['jackaltechteam@gmail.com', 'meglammata7@gmail.com'];
+    const allowed = ['jackaltechteam@gmail.com', 'meglammata@gmail.com'];
     if (allowed.includes(payload.email)) {
       sessionStorage.setItem('st_token', response.credential);
       sessionStorage.setItem('st_user', payload.email);
@@ -640,7 +765,6 @@
   }
 
   function showDashboard() {
-    // dashboard already in DOM, just initialize
     fetchAll();
     setInterval(fetchAll, 5000);
   }
@@ -1002,7 +1126,7 @@ async function approveAndPublish() {
     renderBriefing(allSignals, allInsights);
   }
 
-   initAuth();
+  initAuth();
 
   async function analyzeSignals(signals) {
   const res = await fetch("https://signaltrack-api.onrender.com/analyze", {
