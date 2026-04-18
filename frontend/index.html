@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SignalTrack Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
     :root {
@@ -604,6 +605,46 @@
   let activeFilter = 'all';
   let volChart = null;
 
+  const GOOGLE_CLIENT_ID = "742982574734-d14d3r1qh6ts5p8vae78648871kk2rpj.apps.googleusercontent.com";
+  
+  function initAuth() {
+    const token = sessionStorage.getItem('st_token');
+    if (token) { showDashboard(); return; }
+    showLogin();
+  }
+
+  function showLogin() {
+    document.body.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0e1117;flex-direction:column;gap:24px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;color:#e2e8f0;">ST SignalTrack</div>
+        <div style="color:#8a97b0;font-size:13px;">Sign in with your Jackal Tech Google account</div>
+        <div id="g_id_onload"
+          data-client_id="${GOOGLE_CLIENT_ID}"
+          data-callback="handleCredential"
+          data-auto_prompt="false">
+        </div>
+        <div class="g_id_signin" data-type="standard" data-theme="filled_black" data-size="large"></div>
+      </div>`;
+  }
+
+  function handleCredential(response) {
+    const payload = JSON.parse(atob(response.credential.split('.')[1]));
+    const allowed = ['jackaltechteam@gmail.com'];
+    if (allowed.includes(payload.email)) {
+      sessionStorage.setItem('st_token', response.credential);
+      sessionStorage.setItem('st_user', payload.email);
+      location.reload();
+    } else {
+      alert('Access restricted to Jackal Tech team members.');
+    }
+  }
+
+  function showDashboard() {
+    // dashboard already in DOM, just initialize
+    fetchAll();
+    setInterval(fetchAll, 5000);
+  }
+
   const TC = {
     blocker:    { chip:'BLOCK', cls:'chip-block', color:'#ef4444' },
     risk:       { chip:'RISK',  cls:'chip-risk',  color:'#f97316' },
@@ -961,8 +1002,7 @@ async function approveAndPublish() {
     renderBriefing(allSignals, allInsights);
   }
 
-  fetchAll();
-  setInterval(fetchAll, 5000);
+   initAuth();
 
   async function analyzeSignals(signals) {
   const res = await fetch("https://signaltrack-api.onrender.com/analyze", {
