@@ -530,7 +530,7 @@
           <div class="heatmap-day-label">S</div>
           <div class="heatmap-day-label">S</div>
         </div>
-        <div class="heatmap-footer" id="heatmap-footer">Backend · Platform · Mobile · Security · Data</div>
+        <div class="heatmap-footer" id="heatmap-footer">database · infra · auth · deployment · progress</div>
       </div>
       <div class="chart-card" style="overflow-y:auto;">
         <div class="chart-header">
@@ -806,9 +806,19 @@
     return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  function parseTS(ts) {
+    if (!ts) return new Date();
+    // Already has timezone info
+    if (ts.endsWith('Z') || ts.includes('+')) return new Date(ts);
+    // Has time component but no timezone — assume UTC
+    if (ts.includes('T') || ts.includes(' ')) return new Date(ts + 'Z');
+    // Date only
+    return new Date(ts + 'T00:00:00Z');
+  }
   function timeAgo(ts) {
-    const d = new Date(ts.endsWith('Z') ? ts : ts + 'Z');
+    const d = parseTS(ts);
     const diff = Math.floor((Date.now() - d) / 1000);
+    if (diff < 0) return 'just now';
     if (diff < 60) return `${diff}s ago`;
     if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
@@ -925,7 +935,7 @@
     const now = new Date();
     signals.forEach(s => {
       if (!s.timestamp) return;
-      const diff = Math.floor((now - new Date(s.timestamp)) / 86400000);
+      const diff = Math.floor((now - parseTS(s.timestamp)) / 86400000);
       const idx = 6-diff;
       if (idx>=0&&idx<7) counts[idx]++;
     });
@@ -987,7 +997,7 @@
 
   /* ── HEATMAP ── */
   function renderHeatmap(signals) {
-    const teams = ['Backend','Platform','Mobile','Security','Data'];
+    const teams = ['database','infra','auth','deployment','progress'];
     const grid = document.getElementById('heatmap-grid');
     const days = ['M','T','W','T','F','S','S'];
     let html = days.map(d=>`<div class="heatmap-day-label">${d}</div>`).join('');
@@ -996,7 +1006,7 @@
       const row = new Array(7).fill(0);
       signals.forEach(s => {
         if (!s.timestamp) return;
-        const diff = Math.floor((Date.now()-new Date(s.timestamp))/86400000);
+        const diff = Math.floor((Date.now()-parseTS(s.timestamp))/86400000);
         const col = 6-diff;
         const matches = (s.cluster_id||s.source||'').toLowerCase().includes(team.toLowerCase());
         if (col>=0&&col<7&&matches) row[col]++;
