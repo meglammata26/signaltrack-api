@@ -530,7 +530,7 @@
           <div class="heatmap-day-label">S</div>
           <div class="heatmap-day-label">S</div>
         </div>
-        <div class="heatmap-footer" id="heatmap-footer">Backend · Platform · Mobile · Security · Data</div>
+        <div class="heatmap-footer" id="heatmap-footer">database · infra · auth · deployment · progress</div>
       </div>
       <div class="chart-card" style="overflow-y:auto;">
         <div class="chart-header">
@@ -616,14 +616,9 @@
   // Called by Google GSI after credential is returned
   function handleCredential(response) {
     const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    const allowed = ['jackaltechteam@gmail.com', 'meglammata7@gmail.com'];
-    if (allowed.includes(payload.email)) {
-      sessionStorage.setItem('st_token', response.credential);
-      sessionStorage.setItem('st_user', payload.email);
-      location.reload();
-    } else {
-      alert('Access restricted to Jackal Tech team members.');
-    }
+    sessionStorage.setItem('st_token', response.credential);
+    sessionStorage.setItem('st_user', payload.email);
+    location.reload();
   }
 
   // Make handleCredential globally accessible for the dynamically injected page
@@ -811,9 +806,21 @@
     return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  function parseTS(ts) {
+    if (!ts) return new Date();
+    // Already has explicit timezone (ends with Z or has +HH:MM offset)
+    if (ts.endsWith('Z') || ts.includes('+')) return new Date(ts);
+    // Has T separator (e.g. 2026-04-18T09:35:11.431419) — no timezone, treat as UTC
+    if (ts.includes('T')) return new Date(ts + 'Z');
+    // Has space separator (e.g. 2026-04-18 09:35:11) — replace space, treat as UTC
+    if (ts.includes(' ')) return new Date(ts.replace(' ', 'T') + 'Z');
+    // Date only
+    return new Date(ts + 'T00:00:00Z');
+  }
   function timeAgo(ts) {
-    const d = new Date(ts.endsWith('Z') ? ts : ts + 'Z');
+    const d = parseTS(ts);
     const diff = Math.floor((Date.now() - d) / 1000);
+    if (diff < 0) return 'just now';
     if (diff < 60) return `${diff}s ago`;
     if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
@@ -930,7 +937,7 @@
     const now = new Date();
     signals.forEach(s => {
       if (!s.timestamp) return;
-      const diff = Math.floor((now - new Date(s.timestamp)) / 86400000);
+      const diff = Math.floor((now - parseTS(s.timestamp)) / 86400000);
       const idx = 6-diff;
       if (idx>=0&&idx<7) counts[idx]++;
     });
@@ -992,7 +999,7 @@
 
   /* ── HEATMAP ── */
   function renderHeatmap(signals) {
-    const teams = ['Backend','Platform','Mobile','Security','Data'];
+    const teams = ['database','infra','auth','deployment','progress'];
     const grid = document.getElementById('heatmap-grid');
     const days = ['M','T','W','T','F','S','S'];
     let html = days.map(d=>`<div class="heatmap-day-label">${d}</div>`).join('');
@@ -1001,7 +1008,7 @@
       const row = new Array(7).fill(0);
       signals.forEach(s => {
         if (!s.timestamp) return;
-        const diff = Math.floor((Date.now()-new Date(s.timestamp))/86400000);
+        const diff = Math.floor((Date.now()-parseTS(s.timestamp))/86400000);
         const col = 6-diff;
         const matches = (s.cluster_id||s.source||'').toLowerCase().includes(team.toLowerCase());
         if (col>=0&&col<7&&matches) row[col]++;
