@@ -597,8 +597,8 @@
 </div>
 
 <script>
-  const SIGNALS_API  = "http://127.0.0.1:8000/signals";
-  const INSIGHTS_API = "http://127.0.0.1:8000/insights";
+  const SIGNALS_API  = "https://signaltrack-api.onrender.com/signals";
+  const INSIGHTS_API = "https://signaltrack-api.onrender.com/insights";
 
   let allSignals = [], allInsights = [];
   let activeFilter = 'all';
@@ -932,7 +932,7 @@ async function approveAndPublish() {
   if (!pending.length) return;
 
   await Promise.all(pending.map(i =>
-    fetch(`http://localhost:8000/insights/${i.id}/approve`, { method: 'PATCH' })
+    fetch(`https://signaltrack-api.onrender.com/insights/${i.id}/approve`, { method: 'PATCH' })
   ));
 
   const btn = document.querySelector('.approve-btn');
@@ -965,7 +965,7 @@ async function approveAndPublish() {
   setInterval(fetchAll, 5000);
 
   async function analyzeSignals(signals) {
-  const res = await fetch("http://localhost:8000/analyze", {
+  const res = await fetch("https://signaltrack-api.onrender.com/analyze", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
