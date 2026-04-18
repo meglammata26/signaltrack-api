@@ -616,14 +616,9 @@
   // Called by Google GSI after credential is returned
   function handleCredential(response) {
     const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    const allowed = ['jackaltechteam@gmail.com', 'meglammata7@gmail.com'];
-    if (allowed.includes(payload.email)) {
-      sessionStorage.setItem('st_token', response.credential);
-      sessionStorage.setItem('st_user', payload.email);
-      location.reload();
-    } else {
-      alert('Access restricted to Jackal Tech team members.');
-    }
+    sessionStorage.setItem('st_token', response.credential);
+    sessionStorage.setItem('st_user', payload.email);
+    location.reload();
   }
 
   // Make handleCredential globally accessible for the dynamically injected page
